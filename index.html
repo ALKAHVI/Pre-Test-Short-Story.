@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced English Quiz - Grade XI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Custom styles for matching drag and drop or selection */
+        .match-item { cursor: pointer; transition: all 0.2s; }
+        .match-item.selected { border-color: #3b82f6; background-color: #eff6ff; }
+        .match-item.matched { border-color: #10b981; background-color: #ecfdf5; opacity: 0.7; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800">
+
+<div id="app" class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 pt-10">
+    
+    <!-- Login Screen -->
+    <div id="login-screen" class="bg-white p-8 rounded-xl shadow-lg max-w-md mx-auto mt-20 fade-in">
+        <h1 class="text-2xl font-bold text-center mb-6 text-indigo-700">Student Login</h1>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                <input type="text" id="student-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="Enter your name">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Class (Grade XI)</label>
+                <input type="text" id="student-class" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="e.g., XI IPA 1">
+            </div>
+            <button id="start-btn" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded hover:bg-indigo-700 transition">Start Quiz</button>
+        </div>
+        <!-- Hidden trigger for teacher dashboard -->
+        <div id="teacher-trigger" class="h-10 w-10 absolute top-0 right-0 cursor-default opacity-0"></div>
+    </div>
+
+    <!-- Quiz Screen -->
+    <div id="quiz-screen" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg hidden fade-in">
+        <div class="flex justify-between items-center mb-6 pb-4 border-b">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800" id="display-student-info">Student: Name - Class</h2>
+            </div>
+            <div class="text-right">
+                <span class="text-sm text-gray-500 block">Progress</span>
+                <span class="font-bold text-indigo-600" id="progress-text">1 / 50</span>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <h3 class="text-lg font-medium mb-4 text-gray-700" id="question-type-label">Question Type</h3>
+            <div id="story-container" class="mb-6 p-4 bg-gray-100 rounded-lg text-sm text-gray-700 leading-relaxed hidden">
+                <!-- Story text goes here if applicable to the question -->
+            </div>
+            <p class="text-lg font-semibold mb-6" id="question-text">Question goes here?</p>
+            
+            <div id="options-container" class="space-y-3">
+                <!-- Options injected here -->
+            </div>
+        </div>
+
+        <div class="flex justify-between mt-8 border-t pt-4">
+            <button id="prev-btn" class="px-6 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition hidden">Previous</button>
+            <button id="next-btn" class="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition ml-auto">Next</button>
+            <button id="submit-btn" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition ml-auto hidden">Submit Quiz</button>
+        </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="bg-white p-8 rounded-xl shadow-lg text-center hidden fade-in max-w-md mx-auto mt-20">
+        <h2 class="text-3xl font-bold text-gray-800 mb-4">Quiz Completed!</h2>
+        <div class="text-6xl mb-4">🎉</div>
+        <p class="text-xl mb-2">Your Score:</p>
+        <p class="text-5xl font-bold text-indigo-600 mb-6"><span id="final-score">0</span> / 100</p>
+        <p class="text-gray-600 mb-6" id="result-message">Great job! Your results have been recorded.</p>
+        <button onclick="location.reload()" class="px-6 py-2 border border-indigo-600 text-indigo-600 rounded hover:bg-indigo-50 transition">Back to Start</button>
+    </div>
+
+    <!-- Teacher Dashboard Modal -->
+    <div id="teacher-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Teacher Dashboard</h2>
+                <button id="close-dashboard" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            
+            <!-- Login for teacher -->
+            <div id="teacher-login" class="mb-4">
+                <p class="mb-2 text-sm text-gray-600">Enter teacher password:</p>
+                <div class="flex gap-2">
+                    <input type="password" id="teacher-password" class="border rounded p-2 flex-grow focus:outline-none focus:border-indigo-500">
+                    <button id="teacher-login-btn" class="bg-indigo-600 text-white px-4 py-2 rounded">Login</button>
+                </div>
+                <p id="teacher-error" class="text-red-500 text-sm mt-1 hidden">Incorrect password.</p>
+            </div>
+
+            <!-- Dashboard Content (hidden initially) -->
+            <div id="dashboard-content" class="hidden flex-col flex-grow overflow-hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <p class="text-gray-600">Total Records: <span id="record-count" class="font-bold">0</span></p>
+                    <div class="space-x-2">
+                        <button id="clear-data-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition text-sm">Clear Data</button>
+                        <button id="download-excel-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition text-sm flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Download Excel
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-auto border rounded-lg flex-grow">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-records" class="bg-white divide-y divide-gray-200">
+                            <!-- Records go here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Message Modal (Replacing alert) -->
+<div id="custom-alert" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+        <p id="alert-message" class="text-gray-800 mb-4"></p>
+        <button id="close-alert" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">OK</button>
+    </div>
+</div>
+
+<script>
+// 50 Questions divided into 4 types
+// Story reference for context
+const story1 = `"The Last Leaf" by O. Henry. In a small district west of Washington Square the streets have run crazy and broken themselves into small strips called "places." These "places" make strange angles and curves. One street crosses itself a time or two. An artist once discovered a valuable possibility in this street. Suppose a collector with a bill for paints, paper and canvas should, in traversing this route, suddenly meet himself coming back, without a cent having been paid on account! So, to quaint old Greenwich Village the art people soon came prowling, hunting for north windows and eighteenth-century gables and Dutch attics and low rents. Then they imported some pewter mugs and a chafing dish or two from Sixth Avenue, and became a "colony."
+At the top of a squatty, three-story brick Sue and Johnsy had their studio. "Johnsy" was familiar for Joanna. One was from Maine; the other from California. They had met at the table d'hôte of an Eighth Street "Delmonico's," and found their tastes in art, chicory salad and bishop sleeves so congenial that the joint studio resulted.
+That was in May. In November a cold, unseen stranger, whom the doctors called Pneumonia, stalked about the colony, touching one here and there with his icy fingers. Over on the east side this ravager strode boldly, smiting his victims by scores, but his feet trod slowly through the maze of the narrow and moss-grown "places."`;
+
+const questions = [
+    // Multiple Choice (Questions 1-20)
+    {
+        type: 'multiple-choice',
+        story: story1,
+        question: 'What is the main setting described in the introductory paragraph?',
+        options: ['Washington Square Park', 'Greenwich Village', 'Sixth Avenue', 'Maine'],
+        answer: 'Greenwich Village'
+    },
+    {
+        type: 'multiple-choice',
+        story: story1,
+        question: 'Why did artists move to this specific district?',
+        options: ['For the modern apartments', 'For the high society life', 'For north windows, old gables, and low rents', 'To escape from collectors only'],
+        answer: 'For north windows, old gables, and low rents'
+    },
+    {
+        type: 'multiple-choice',
+        story: story1,
+        question: 'What is Johnsy short for?',
+        options: ['John', 'Joan', 'Joanna', 'Josephine'],
+        answer: 'Joanna'
+    },
+    {
+        type: 'multiple-choice',
+        story: story1,
+        question: 'How is Pneumonia personified in the text?',
+        options: ['As a caring doctor', 'As a cold, unseen stranger with icy fingers', 'As a ghost haunting the art colony', 'As a fierce storm'],
+        answer: 'As a cold, unseen stranger with icy fingers'
+    },
+    {
+        type: 'multiple-choice',
+        story: story1,
+        question: 'Where did Sue and Johnsy first meet?',
+        options: ['In a painting class', 'At a hospital', 'At an Eighth Street "Delmonico\'s"', 'In California'],
+        answer: 'At an Eighth Street "Delmonico\'s"'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'In short stories, the climax is usually defined as:',
+        options: ['The introduction of characters', 'The resolution of the conflict', 'The turning point or highest tension', 'The background information'],
+        answer: 'The turning point or highest tension'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'Which point of view uses pronouns like "he", "she", and "they", but only knows the thoughts of ONE character?',
+        options: ['First-person', 'Third-person omniscient', 'Third-person limited', 'Second-person'],
+        answer: 'Third-person limited'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'A theme in a story is best described as:',
+        options: ['The plot outline', 'The central idea or underlying message', 'The physical setting', 'The main character\'s name'],
+        answer: 'The central idea or underlying message'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'When the outcome of a situation is the opposite of what was expected, it is called:',
+        options: ['Verbal irony', 'Dramatic irony', 'Situational irony', 'Foreshadowing'],
+        answer: 'Situational irony'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'What is the purpose of foreshadowing in a narrative?',
+        options: ['To resolve the plot quickly', 'To hint at events that will happen later', 'To provide detailed character background', 'To describe the setting vividly'],
+        answer: 'To hint at events that will happen later'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'Which of the following is NOT a typical element of plot?',
+        options: ['Exposition', 'Rising Action', 'Metaphor', 'Resolution'],
+        answer: 'Metaphor'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'The antagonist in a story is:',
+        options: ['Always an evil person', 'The main character', 'The force or character opposing the protagonist', 'The author'],
+        answer: 'The force or character opposing the protagonist'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'An "epiphany" in a short story refers to:',
+        options: ['A sudden realization or insight by a character', 'The ending of the story', 'A long speech given by the protagonist', 'A change in setting'],
+        answer: 'A sudden realization or insight by a character'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'What does "tone" refer to in literature?',
+        options: ['The reader\'s feelings', 'The author\'s attitude toward the subject or audience', 'The volume of the character\'s voice', 'The time period of the story'],
+        answer: 'The author\'s attitude toward the subject or audience'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'Which literary device gives human characteristics to non-human things?',
+        options: ['Simile', 'Hyperbole', 'Personification', 'Alliteration'],
+        answer: 'Personification'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'The "mood" of a story is:',
+        options: ['The author\'s emotional state while writing', 'The grammatical tense used', 'The atmosphere or feeling created for the reader', 'The moral of the story'],
+        answer: 'The atmosphere or feeling created for the reader'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'A conflict that occurs entirely within a character\'s mind is called:',
+        options: ['Man vs. Nature', 'Man vs. Society', 'Internal conflict (Man vs. Self)', 'External conflict'],
+        answer: 'Internal conflict (Man vs. Self)'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'What is a "flashback"?',
+        options: ['A sudden bright light in the setting', 'A jump forward in time', 'An interruption of the chronological sequence to show earlier events', 'A quick resolution to the story'],
+        answer: 'An interruption of the chronological sequence to show earlier events'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'The time and place in which a story occurs is the:',
+        options: ['Plot', 'Setting', 'Theme', 'Point of View'],
+        answer: 'Setting'
+    },
+    {
+        type: 'multiple-choice',
+        question: 'Which term describes a character who changes significantly throughout the story?',
+        options: ['Static character', 'Flat character', 'Dynamic character', 'Stock character'],
+        answer: 'Dynamic character'
+    },
+
+    // True/False (Questions 21-35)
+    {
+        type: 'true-false',
+        question: 'In "The Last Leaf", Sue and Johnsy met in November.',
+        answer: 'False'
+    },
+    {
+        type: 'true-false',
+        question: 'A protagonist is always a morally good character.',
+        answer: 'False'
+    },
+    {
+        type: 'true-false',
+        question: 'First-person point of view is usually narrated using "I" or "we".',
+        answer: 'True'
+    },
+    {
+        type: 'true-false',
+        question: 'The exposition of a story typically introduces the characters and setting.',
+        answer: 'True'
+    },
+    {
+        type: 'true-false',
+        question: 'A short story usually has a more complex plot with multiple subplots compared to a novel.',
+        answer: 'False'
+    },
+    {
+        type: 'true-false',
+        question: 'Dramatic irony occurs when the audience or reader knows something that the characters do not.',
+        answer: 'True'
+    },
+    {
+        type: 'true-false',
+        question: 'A static character undergoes significant internal change by the end of the narrative.',
+        answer: 'False'
+    },
+    {
+        type: 'true-false',
+        question: 'The resolution is the part of the plot where the main conflict is resolved or worked out.',
+        answer: 'True'
+    },
+    {
+        type: 'true-false',
+        question: 'Hyperbole is an intentional exaggeration used for effect.',
+        answer: 'True'
+    },
+    {
+        type: 'true-false',
+        question: 'The theme of a story is usually stated explicitly in the first paragraph.',
+        answer: 'False'
+    },
+    {
+        type: 'true-false',
+        question: 'A symbol in literature is an object, person, or situation that has another meaning other than its literal one.',
+        answer: 'True'
+    },
+    {
+        type: 'true-false',
+        question: 'An omniscient narrator only knows the thoughts of the protagonist.',
+        answer: 'False'
+    },
+    {
+        type: 'true-false',
+        question: 'Foreshadowing is used to build suspense in a story.',
+        answer: 'True'
+    },
+    {
+        type: 'true-false',
+        question: 'Man vs. Society is an example of an internal conflict.',
+        answer: 'False'
+    },
+    {
+        type: 'true-false',
+        question: 'The falling action occurs immediately after the climax.',
+        answer: 'True'
+    },
+
+    // Matching (Questions 36-42) - Handled as pairs
+    {
+        type: 'matching',
+        question: 'Match the literary terms with their correct definitions.',
+        pairs: [
+            { left: 'Simile', right: 'Comparison using "like" or "as"' },
+            { left: 'Metaphor', right: 'Direct comparison without "like" or "as"' },
+            { left: 'Alliteration', right: 'Repetition of initial consonant sounds' },
+            { left: 'Onomatopoeia', right: 'Words that imitate sounds' }
+        ]
+    },
+    {
+        type: 'matching',
+        question: 'Match the plot elements with their descriptions.',
+        pairs: [
+            { left: 'Exposition', right: 'Background information' },
+            { left: 'Rising Action', right: 'Events building to the climax' },
+            { left: 'Climax', right: 'Peak of tension' },
+            { left: 'Resolution', right: 'Conclusion of the story' }
+        ]
+    },
+    {
+        type: 'matching',
+        question: 'Match the type of conflict with its example.',
+        pairs: [
+            { left: 'Man vs. Self', right: 'Deciding whether to lie to a friend' },
+            { left: 'Man vs. Nature', right: 'Surviving a severe blizzard' },
+            { left: 'Man vs. Society', right: 'Fighting against an unjust law' },
+            { left: 'Man vs. Man', right: 'A duel between two rivals' }
+        ]
+    },
+    {
+        type: 'matching',
+        question: 'Match the character types with their definitions.',
+        pairs: [
+            { left: 'Protagonist', right: 'Main character' },
+            { left: 'Antagonist', right: 'Opposes the main character' },
+            { left: 'Dynamic', right: 'Changes over time' },
+            { left: 'Static', right: 'Remains the same' }
+        ]
+    },
+    {
+        type: 'matching',
+        question: 'Match the point of view to its characteristic.',
+        pairs: [
+            { left: 'First Person', right: 'Uses "I", narrator is a character' },
+            { left: 'Third Person Limited', right: 'Knows thoughts of one character' },
+            { left: 'Third Person Omniscient', right: 'All-knowing narrator' },
+            { left: 'Second Person', right: 'Uses "You", addresses reader' }
+        ]
+    },
+    {
+        type: 'matching',
+        question: 'Match the irony types to their definitions.',
+        pairs: [
+            { left: 'Verbal Irony', right: 'Saying opposite of what is meant' },
+            { left: 'Situational Irony', right: 'Opposite of what is expected happens' },
+            { left: 'Dramatic Irony', right: 'Reader knows more than characters' }
+        ]
+    },
+    {
+        type: 'matching',
+        question: 'Match the structural elements to their purpose.',
+        pairs: [
+            { left: 'Foreshadowing', right: 'Hints at future events' },
+            { left: 'Flashback', right: 'Shows past events' },
+            { left: 'Pacing', right: 'Speed at which story moves' },
+            { left: 'Suspense', right: 'Feeling of anticipation' }
+        ]
+    },
+
+    // Multiple Answer (More than one correct) (Questions 43-50)
+    {
+        type: 'multiple-answer',
+        question: 'Which of the following are characteristics of a short story? (Select all that apply)',
+        options: ['Usually focuses on a single incident', 'Takes several days to read', 'Has a limited number of characters', 'Usually written in verse'],
+        answers: ['Usually focuses on a single incident', 'Has a limited number of characters']
+    },
+    {
+        type: 'multiple-answer',
+        question: 'Which of the following are examples of EXTERNAL conflict? (Select all that apply)',
+        options: ['A character struggling with guilt', 'A character fighting a dragon', 'A character lost in the desert', 'A character arguing with their boss'],
+        answers: ['A character fighting a dragon', 'A character lost in the desert', 'A character arguing with their boss']
+    },
+    {
+        type: 'multiple-answer',
+        question: 'Select the elements that are essential parts of Setting:',
+        options: ['Time period', 'Geographical location', 'The main character\'s name', 'Social environment / Weather'],
+        answers: ['Time period', 'Geographical location', 'Social environment / Weather']
+    },
+    {
+        type: 'multiple-answer',
+        question: 'Which of these statements describe "Theme"? (Select all that apply)',
+        options: ['It is a universal idea or message.', 'It is usually a one-word topic (like "Love").', 'It implies a complete thought or statement about life.', 'It is explicitly stated in the dialogue.'],
+        answers: ['It is a universal idea or message.', 'It implies a complete thought or statement about life.']
+    },
+    {
+        type: 'multiple-answer',
+        question: 'Identify the examples of figurative language: (Select all that apply)',
+        options: ['The sky was blue.', 'Her smile was as bright as the sun.', 'The wind whispered through the trees.', 'He walked to the store.'],
+        answers: ['Her smile was as bright as the sun.', 'The wind whispered through the trees.']
+    },
+    {
+        type: 'multiple-answer',
+        question: 'Which details belong to the exposition phase of a plot? (Select all that apply)',
+        options: ['The resolution of the main problem', 'Introduction of the main characters', 'Description of the primary setting', 'The highest point of tension'],
+        answers: ['Introduction of the main characters', 'Description of the primary setting']
+    },
+    {
+        type: 'multiple-answer',
+        question: 'From the excerpt of "The Last Leaf", what characterizes Greenwich Village? (Select all that apply)',
+        options: ['Crazy and broken streets', 'High rent apartments', 'Dutch attics', 'Modern skyscrapers'],
+        answers: ['Crazy and broken streets', 'Dutch attics']
+    },
+    {
+        type: 'multiple-answer',
+        question: 'What makes a character "Dynamic"? (Select all that apply)',
+        options: ['They change their personality or worldview.', 'They learn a significant lesson.', 'They remain unchanged throughout the story.', 'Their physical appearance is described in detail.'],
+        answers: ['They change their personality or worldview.', 'They learn a significant lesson.']
+    }
+];
+
+let currentQuestionIndex = 0;
+let studentData = { name: '', class: '' };
+let userAnswers = new Array(questions.length).fill(null);
+// Local storage key for saving results simulating a database
+const STORAGE_KEY = 'english_quiz_results';
+
+// DOM Elements
+const loginScreen = document.getElementById('login-screen');
+const quizScreen = document.getElementById('quiz-screen');
+const resultScreen = document.getElementById('result-screen');
+const startBtn = document.getElementById('start-btn');
+const nextBtn = document.getElementById('next-btn');
+const prevBtn = document.getElementById('prev-btn');
+const submitBtn = document.getElementById('submit-btn');
+
+function showAlert(message) {
+    document.getElementById('alert-message').textContent = message;
+    document.getElementById('custom-alert').classList.remove('hidden');
+}
+document.getElementById('close-alert').addEventListener('click', () => {
+    document.getElementById('custom-alert').classList.add('hidden');
+});
+
+// Utility to shuffle arrays
+function shuffleArray(array) {
+    const newArr = [...array];
+    for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+    }
+    return newArr;
+}
+
+startBtn.addEventListener('click', () => {
+    const name = document.getElementById('student-name').value.trim();
+    const className = document.getElementById('student-class').value.trim();
+
+    if (!name || !className) {
+        showAlert('Please enter both your Name and Class.');
+        return;
+    }
+
+    studentData = { name, class: className };
+    document.getElementById('display-student-info').textContent = `${studentData.name} - ${studentData.class}`;
+    
+    // Initialize answers structure specifically for matching
+    questions.forEach((q, index) => {
+        if (q.type === 'matching' && !userAnswers[index]) {
+            userAnswers[index] = []; // Array to hold matched pairs
+        }
+        if(q.type === 'multiple-answer' && !userAnswers[index]){
+             userAnswers[index] = [];
+        }
+    });
+
+    loginScreen.classList.add('hidden');
+    quizScreen.classList.remove('hidden');
+    renderQuestion();
+});
+
+function renderQuestion() {
+    const q = questions[currentQuestionIndex];
+    
+    // Update Progress
+    document.getElementById('progress-text').textContent = `${currentQuestionIndex + 1} / ${questions.length}`;
+    
+    // Setup Story Context if exists
+    const storyContainer = document.getElementById('story-container');
+    if (q.story) {
+        storyContainer.innerHTML = q.story.replace(/\n/g, '<br>');
+        storyContainer.classList.remove('hidden');
+    } else {
+        storyContainer.classList.add('hidden');
+    }
+
+    // Set Question Text
+    document.getElementById('question-text').textContent = `${currentQuestionIndex + 1}. ${q.question}`;
+    
+    const optionsContainer = document.getElementById('options-container');
+    optionsContainer.innerHTML = '';
+    
+    const typeLabel = document.getElementById('question-type-label');
+
+    // Handle different question types
+    if (q.type === 'multiple-choice' || q.type === 'true-false') {
+        typeLabel.textContent = q.type === 'multiple-choice' ? 'Multiple Choice' : 'True or False';
+        
+        let optionsToRender = q.options;
+        if (q.type === 'true-false') {
+            optionsToRender = ['True', 'False'];
+        }
+
+        optionsToRender.forEach(option => {
+            const label = document.createElement('label');
+            label.className = `flex items-center p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50 ${userAnswers[currentQuestionIndex] === option ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`;
+            
+            const input = document.createElement('input');
+            input.type = 'radio';
+            input.name = `q-${currentQuestionIndex}`;
+            input.value = option;
+            input.className = 'w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500';
+            if (userAnswers[currentQuestionIndex] === option) input.checked = true;
+            
+            input.addEventListener('change', (e) => {
+                userAnswers[currentQuestionIndex] = e.target.value;
+                renderQuestion(); // Re-render to update selection styling
+            });
+
+            const span = document.createElement('span');
+            span.className = 'ml-3 text-gray-700';
+            span.textContent = option;
+
+            label.appendChild(input);
+            label.appendChild(span);
+            optionsContainer.appendChild(label);
+        });
+    } 
+    else if (q.type === 'multiple-answer') {
+        typeLabel.textContent = 'Multiple Answer (Select all correct options)';
+        
+        q.options.forEach(option => {
+            const isChecked = userAnswers[currentQuestionIndex] && userAnswers[currentQuestionIndex].includes(option);
+            const label = document.createElement('label');
+            label.className = `flex items-center p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50 ${isChecked ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`;
+            
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = option;
+            input.className = 'w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500';
+            input.checked = isChecked;
+            
+            input.addEventListener('change', (e) => {
+                if (!userAnswers[currentQuestionIndex]) userAnswers[currentQuestionIndex] = [];
+                if (e.target.checked) {
+                    userAnswers[currentQuestionIndex].push(e.target.value);
+                } else {
+                    userAnswers[currentQuestionIndex] = userAnswers[currentQuestionIndex].filter(v => v !== e.target.value);
+                }
+                renderQuestion(); // Re-render for styling
+            });
+
+            const span = document.createElement('span');
+            span.className = 'ml-3 text-gray-700';
+            span.textContent = option;
+
+            label.appendChild(input);
+            label.appendChild(span);
+            optionsContainer.appendChild(label);
+        });
+    }
+    else if (q.type === 'matching') {
+        typeLabel.textContent = 'Matching (Tap a left item, then a right item)';
+        renderMatchingInterface(q, optionsContainer);
+    }
+
+    // Navigation buttons logic
+    prevBtn.classList.toggle('hidden', currentQuestionIndex === 0);
+    
+    if (currentQuestionIndex === questions.length - 1) {
+        nextBtn.classList.add('hidden');
+        submitBtn.classList.remove('hidden');
+    } else {
+        nextBtn.classList.remove('hidden');
+        submitBtn.classList.add('hidden');
+    }
+}
+
+function renderMatchingInterface(q, container) {
+    // We need to keep track of matched pairs for the UI state
+    let currentAnswers = userAnswers[currentQuestionIndex] || [];
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex gap-4 flex-col sm:flex-row';
+
+    const leftCol = document.createElement('div');
+    leftCol.className = 'flex-1 space-y-2';
+    const rightCol = document.createElement('div');
+    rightCol.className = 'flex-1 space-y-2';
+
+    // Shuffle only on first render of this question to keep positions stable
+    if (!q.shuffledLeft) {
+        q.shuffledLeft = shuffleArray(q.pairs.map(p => p.left));
+        q.shuffledRight = shuffleArray(q.pairs.map(p => p.right));
+    }
+
+    let selectedLeft = null;
+
+    function handleSelection(type, text, element) {
+        if (type === 'left') {
+            // Deselect all lefts
+            leftCol.querySelectorAll('.match-item').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedLeft = text;
+        } else if (type === 'right' && selectedLeft) {
+            // Check if right is already matched
+            if(element.classList.contains('matched')) return;
+
+            // Save match
+            // Remove previous match for this left item if exists
+            currentAnswers = currentAnswers.filter(a => a.left !== selectedLeft);
+            currentAnswers.push({ left: selectedLeft, right: text });
+            userAnswers[currentQuestionIndex] = currentAnswers;
+            
+            renderMatchingInterface(q, container); // Re-render to show lines/matched state
+        }
+    }
+
+    q.shuffledLeft.forEach(leftText => {
+        const div = document.createElement('div');
+        const isMatched = currentAnswers.find(a => a.left === leftText);
+        div.className = `match-item p-3 border rounded-lg text-center ${isMatched ? 'matched' : 'bg-white hover:bg-gray-50 border-gray-300'}`;
+        div.textContent = isMatched ? `${leftText} (Matched)` : leftText;
+        if(!isMatched) {
+            div.addEventListener('click', () => handleSelection('left', leftText, div));
+        }
+        leftCol.appendChild(div);
+    });
+
+    q.shuffledRight.forEach(rightText => {
+        const div = document.createElement('div');
+        const isMatched = currentAnswers.find(a => a.right === rightText);
+        
+        let displayMatchedLeft = '';
+        if(isMatched) {
+             displayMatchedLeft = `<div class="text-xs text-indigo-600 font-bold mt-1">Matched with: ${isMatched.left}</div>`;
+        }
+
+        div.className = `match-item p-3 border rounded-lg text-center ${isMatched ? 'border-indigo-500 bg-indigo-50' : 'bg-white hover:bg-gray-50 border-gray-300'}`;
+        div.innerHTML = `<div>${rightText}</div>${displayMatchedLeft}`;
+        
+        if(!isMatched) {
+            div.addEventListener('click', () => handleSelection('right', rightText, div));
+        } else {
+             // Add click to unmatch
+             div.style.cursor = 'pointer';
+             div.addEventListener('click', () => {
+                 userAnswers[currentQuestionIndex] = currentAnswers.filter(a => a.right !== rightText);
+                 renderMatchingInterface(q, container);
+             });
+        }
+        rightCol.appendChild(div);
+    });
+
+    wrapper.appendChild(leftCol);
+    wrapper.appendChild(rightCol);
+    
+    // Add reset button for matching
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = 'Reset Matches';
+    resetBtn.className = 'mt-4 px-4 py-2 text-sm text-red-600 border border-red-600 rounded hover:bg-red-50 transition';
+    resetBtn.onclick = () => {
+        userAnswers[currentQuestionIndex] = [];
+        renderMatchingInterface(q, container);
+    }
+    
+    container.innerHTML = '';
+    container.appendChild(wrapper);
+    container.appendChild(resetBtn);
+}
+
+nextBtn.addEventListener('click', () => {
+    if (currentQuestionIndex < questions.length - 1) {
+        currentQuestionIndex++;
+        renderQuestion();
+    }
+});
+
+prevBtn.addEventListener('click', () => {
+    if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        renderQuestion();
+    }
+});
+
+submitBtn.addEventListener('click', () => {
+    // Ask for confirmation
+    if(!confirm('Are you sure you want to submit your quiz? You cannot change your answers after submitting.')) return;
+
+    calculateScore();
+});
+
+function calculateScore() {
+    let score = 0;
+    const pointPerQuestion = 100 / questions.length; // 2 points per question
+
+    questions.forEach((q, index) => {
+        const userAnswer = userAnswers[index];
+        
+        if (q.type === 'multiple-choice' || q.type === 'true-false') {
+            if (userAnswer === q.answer) score += pointPerQuestion;
+        } 
+        else if (q.type === 'multiple-answer') {
+            if (Array.isArray(userAnswer)) {
+                // Check if arrays have same elements
+                const isCorrect = userAnswer.length === q.answers.length && 
+                                  userAnswer.every(val => q.answers.includes(val));
+                if (isCorrect) score += pointPerQuestion;
+            }
+        }
+        else if (q.type === 'matching') {
+            if (Array.isArray(userAnswer)) {
+                let correctPairs = 0;
+                userAnswer.forEach(ansPair => {
+                    const originalPair = q.pairs.find(p => p.left === ansPair.left);
+                    if (originalPair && originalPair.right === ansPair.right) {
+                        correctPairs++;
+                    }
+                });
+                // Partial credit for matching (or all or nothing based on preference. Here: proportional)
+                const proportion = correctPairs / q.pairs.length;
+                score += (pointPerQuestion * proportion);
+            }
+        }
+    });
+
+    const finalScore = Math.round(score);
+    
+    // Save to LocalStorage simulating database
+    saveResult(finalScore);
+
+    // Show Result Screen
+    quizScreen.classList.add('hidden');
+    resultScreen.classList.remove('hidden');
+    document.getElementById('final-score').textContent = finalScore;
+    
+    let msg = "Great job!";
+    if(finalScore < 50) msg = "Keep practicing, you'll get there!";
+    if(finalScore >= 90) msg = "Outstanding performance!";
+    document.getElementById('result-message').textContent = msg;
+}
+
+function saveResult(score) {
+    const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    records.push({
+        date: new Date().toISOString(),
+        name: studentData.name,
+        class: studentData.class,
+        score: score
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+const teacherTrigger = document.getElementById('teacher-trigger');
+const teacherModal = document.getElementById('teacher-modal');
+const teacherPasswordInput = document.getElementById('teacher-password');
+const teacherLoginBtn = document.getElementById('teacher-login-btn');
+const teacherError = document.getElementById('teacher-error');
+const dashboardContent = document.getElementById('dashboard-content');
+const teacherLoginArea = document.getElementById('teacher-login');
+const closeDashboardBtn = document.getElementById('close-dashboard');
+
+// Double click on hidden top right corner triggers modal
+teacherTrigger.addEventListener('dblclick', () => {
+    teacherModal.classList.remove('hidden');
+    teacherPasswordInput.value = '';
+    teacherError.classList.add('hidden');
+    teacherLoginArea.classList.remove('hidden');
+    dashboardContent.classList.add('hidden');
+});
+
+closeDashboardBtn.addEventListener('click', () => {
+    teacherModal.classList.add('hidden');
+});
+
+teacherLoginBtn.addEventListener('click', () => {
+    if (teacherPasswordInput.value === 'smansa') {
+        teacherLoginArea.classList.add('hidden');
+        dashboardContent.classList.remove('hidden');
+        dashboardContent.classList.add('flex');
+        loadDashboardData();
+    } else {
+        teacherError.classList.remove('hidden');
+    }
+});
+
+teacherPasswordInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') teacherLoginBtn.click();
+});
+
+function loadDashboardData() {
+    const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const tbody = document.getElementById('student-records');
+    document.getElementById('record-count').textContent = records.length;
+    tbody.innerHTML = '';
+
+    // Sort by newest first
+    records.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    records.forEach(record => {
+        const dateObj = new Date(record.date);
+        const dateStr = `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString()}`;
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${dateStr}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${record.name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.class}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${record.score >= 70 ? 'text-green-600' : 'text-red-600'}">${record.score}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+document.getElementById('clear-data-btn').addEventListener('click', () => {
+    if(confirm('Are you sure you want to delete ALL student records? This cannot be undone.')) {
+        localStorage.removeItem(STORAGE_KEY);
+        loadDashboardData();
+    }
+});
+
+document.getElementById('download-excel-btn').addEventListener('click', () => {
+    const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    if(records.length === 0) {
+        showAlert("No data to download.");
+        return;
+    }
+
+    // Format data for excel
+    const excelData = records.map(r => {
+        const dateObj = new Date(r.date);
+        return {
+            'Date': dateObj.toLocaleDateString(),
+            'Time': dateObj.toLocaleTimeString(),
+            'Name': r.name,
+            'Class': r.class,
+            'Score': r.score
+        };
+    });
+
+    // Create workbook and worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Quiz Results");
+
+    // Fix column widths
+    const wscols = [
+        {wch: 12}, // Date
+        {wch: 10}, // Time
+        {wch: 25}, // Name
+        {wch: 15}, // Class
+        {wch: 8}   // Score
+    ];
+    worksheet['!cols'] = wscols;
+
+    // Trigger download
+    XLSX.writeFile(workbook, "English_Quiz_Results_XI.xlsx");
+});
+
+</script>
+</body>
+</html>
